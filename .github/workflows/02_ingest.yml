@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: 01. Ingest
+name: 02. Ingest
 
 on:
   workflow_call:
