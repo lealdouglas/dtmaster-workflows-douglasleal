@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: Lake Setup
+name: 01. Lake Setup
 
 on:
   workflow_call:
