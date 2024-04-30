@@ -1,169 +1,68 @@
-# We strongly recommend using the required_providers block to set the
-# Azure Provider source and version being used
-
 terraform {
   required_providers {
     azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "=3.101.0"
+      source = "hashicorp/azurerm"
     }
     databricks = {
-      source  = "databricks/databricks"
-      version = "1.15.0"
+      source = "databricks/databricks"
     }
   }
-
-  # if you need save your tf state security
-  #   backend "azurerm" {
-  #     resource_group_name = "value"
-  #     storage_account_name = "value"
-  #     container_name = "value"
-  #     key = "value"
-  #   }
-
-}
-
-provider "azurerm" {
-  features {}
 }
 
 data "azurerm_client_config" "current" {
 }
 
-#Criando um grupo de Data Engineers
-resource "azuread_group" "data_engineers" {
-  display_name     = "Data Engineers"
-  description      = "Group for Data Engineers"
-  security_enabled = true
+locals {
+  resource_regex            = "(?i)subscriptions/(.+)/resourceGroups/(.+)/providers/Microsoft.Databricks/workspaces/(.+)"
+  subscription_id           = regex(local.resource_regex, var.databricks_resource_id)[0]
+  resource_group            = regex(local.resource_regex, var.databricks_resource_id)[1]
+  databricks_workspace_name = regex(local.resource_regex, var.databricks_resource_id)[2]
+  tenant_id                 = data.azurerm_client_config.current.tenant_id
+  prefix                    = replace(replace(replace(lower(data.azurerm_resource_group.this.name), "rg", ""), "-", ""), "_", "")
 }
 
-#Criando um grupo de Data Engineers
-resource "azuread_group" "account_unity_admin" {
-  display_name     = "account_unity_admin"
-  description      = "Group for Admin Unity Account"
-  security_enabled = true
+data "azurerm_resource_group" "this" {
+  name = local.resource_group
 }
 
-# Criando os usuários
-resource "azuread_user" "user1" {
-  display_name        = "Minato"
-  user_principal_name = "minato@douglasslealoutlook.onmicrosoft.com"
-  password            = "Password1234!"
-  mail_nickname       = "Minato"
-  given_name          = "minato"
-  job_title           = "Data Engineer"
-  department          = "Engineering"
+provider "azurerm" {
+  subscription_id = local.subscription_id
+  features {}
 }
 
-resource "azuread_user" "user2" {
-  display_name        = "Carlao"
-  user_principal_name = "carlao@douglasslealoutlook.onmicrosoft.com"
-  password            = "Password5678!"
-  mail_nickname       = "carlao"
-  given_name          = "Carlao"
-  job_title           = "Data Engineer"
-  department          = "Engineering"
+data "azurerm_databricks_workspace" "this" {
+  name                = local.databricks_workspace_name
+  resource_group_name = local.resource_group
 }
 
-resource "azuread_user" "user3" {
-  display_name        = "Narezzi"
-  user_principal_name = "narezzi@douglasslealoutlook.onmicrosoft.com"
-  password            = "Password5678!"
-  mail_nickname       = "narezzi"
-  given_name          = "Narezzi"
-  job_title           = "Data Engineer"
-  department          = "Engineering"
+locals {
+  databricks_workspace_host = data.azurerm_databricks_workspace.this.workspace_url
 }
 
-resource "azuread_user" "user4" {
-  display_name        = "Brunno"
-  user_principal_name = "brunno@douglasslealoutlook.onmicrosoft.com"
-  password            = "Password5624!"
-  mail_nickname       = "brunno"
-  given_name          = "Brunno"
-  job_title           = "account_unity_admin"
-  department          = "Engineering"
-}
-
-# Adicionando os usuários ao grupo de Data Engineers
-resource "azuread_group_member" "user1_member" {
-  group_object_id  = azuread_group.data_engineers.id
-  member_object_id = azuread_user.user1.id
-}
-
-resource "azuread_group_member" "user2_member" {
-  group_object_id  = azuread_group.data_engineers.id
-  member_object_id = azuread_user.user2.id
-}
-
-resource "azuread_group_member" "user3_member" {
-  group_object_id  = azuread_group.data_engineers.id
-  member_object_id = azuread_user.user3.id
-}
-
-resource "azuread_group_member" "user4_member" {
-  group_object_id  = azuread_group.account_unity_admin.id
-  member_object_id = azuread_user.user4.id
-}
-
-# Create a resource group
-resource "azurerm_resource_group" "this" {
-  name     = "rsg${local.suffix_concat}"
-  location = var.location
-  tags     = local.tags
-}
-
-# Create a storage account gen2 in resource group
-resource "azurerm_storage_account" "this" {
-  name                      = "sta${local.suffix_concat}"
-  resource_group_name       = azurerm_resource_group.this.name
-  location                  = var.location
-  account_tier              = "Standard"
-  account_replication_type  = "LRS"
-  account_kind              = "StorageV2"
-  access_tier               = "Hot"
-  is_hns_enabled            = true
-  shared_access_key_enabled = true
-  min_tls_version           = "TLS1_2"
-  tags                      = local.tags
-}
-
-# resource "azurerm_eventhub_namespace" "this" {
-#   name                = "eh${local.suffix_concat}"
-#   location            = azurerm_resource_group.example.location
-#   resource_group_name = azurerm_resource_group.example.name
-#   sku                 = "Standard"
-#   capacity            = 1
-#   tags                = local.tags
-# }
-
-resource "azurerm_databricks_workspace" "this" {
-  location                    = azurerm_resource_group.this.location
-  name                        = "adb${local.suffix_concat}"
-  resource_group_name         = azurerm_resource_group.this.name
-  sku                         = "trial"
-  managed_resource_group_name = "rsg${local.suffix_concat}-workspace"
-  tags                        = local.tags
+// Provider for databricks workspace
+provider "databricks" {
+  host = local.databricks_workspace_host
 }
 
 // Provider for databricks account
 provider "databricks" {
   alias      = "azure_account"
   host       = "https://accounts.azuredatabricks.net"
-  account_id = azurerm_databricks_workspace.this.workspace_id
+  account_id = var.account_id
   auth_type  = "azure-cli"
 }
 
 // Module creating UC metastore and adding users, groups and service principals to azure databricks account
 module "metastore_and_users" {
-  source                    = "./modules/metastore-and-users"
-  databricks_workspace_name = azurerm_databricks_workspace.this.name
-  account_id                = azurerm_databricks_workspace.this.workspace_id
-  subscription_id           = data.azurerm_client_config.current.subscription_id
-  resource_group            = azurerm_resource_group.this.name
+  source                    = "./modules/adb-metastore-and-users"
+  subscription_id           = local.subscription_id
+  databricks_workspace_name = local.databricks_workspace_name
+  resource_group            = local.resource_group
   aad_groups                = var.aad_groups
-  prefix                    = local.suffix_concat
+  account_id                = var.account_id
+  prefix                    = local.prefix
 }
+
 
 locals {
   merged_user_sp = merge(module.metastore_and_users.databricks_users, module.metastore_and_users.databricks_sps)
@@ -206,6 +105,14 @@ resource "databricks_mws_permission_assignment" "workspace_user_groups" {
   depends_on   = [databricks_group_member.this]
 }
 
+resource "databricks_grants" "this" {
+  metastore = module.metastore_and_users.metastore_id
+  grant {
+    principal  = "account_unity_admin"
+    privileges = ["CREATE_CATALOG", "CREATE_EXTERNAL_LOCATION", "CREATE_STORAGE_CREDENTIAL"]
+  }
+}
+
 // Create storage credentials, external locations, catalogs, schemas and grants
 
 // Create a container in storage account to be used by dev catalog as root storage
@@ -227,14 +134,18 @@ resource "databricks_storage_credential" "external_mi" {
 }
 
 // Create external location to be used as root storage by dev catalog
+// You do not have the CREATE EXTERNAL LOCATION privilege for this credential. 
+// Contact your metastore administrator to grant you the privilege to this credential.
+// abfss://dev-catalog@starsgdtmstrdougslldevuc.dfs.core.windows.net
 resource "databricks_external_location" "dev_location" {
   name = "dev-catalog-external-location"
-  url = format("abfss://%s@%s.dfs.core.windows.net",
+  url = format("abfss://%s@%s.dfs.core.windows.net/",
     azurerm_storage_container.dev_catalog.name,
   module.metastore_and_users.azurerm_storage_account_unity_catalog.name)
   credential_name = databricks_storage_credential.external_mi.id
   owner           = "account_unity_admin"
   comment         = "External location used by dev catalog as root storage"
+  depends_on      = [databricks_storage_credential.external_mi]
 }
 
 // Create dev environment catalog
@@ -247,7 +158,7 @@ resource "databricks_catalog" "dev" {
   properties = {
     purpose = "dev"
   }
-  depends_on = [databricks_external_location.dev_location]
+  depends_on = [databricks_grants.this, databricks_external_location.dev_location]
 }
 
 // Grants on dev catalog
@@ -257,14 +168,14 @@ resource "databricks_grants" "dev_catalog" {
     principal  = "data_engineer"
     privileges = ["USE_CATALOG"]
   }
-  grant {
-    principal  = "data_scientist"
-    privileges = ["USE_CATALOG"]
-  }
-  grant {
-    principal  = "data_analyst"
-    privileges = ["USE_CATALOG"]
-  }
+  # grant {
+  #   principal  = "data_scientist"
+  #   privileges = ["USE_CATALOG"]
+  # }
+  # grant {
+  #   principal  = "data_analyst"
+  #   privileges = ["USE_CATALOG"]
+  # }
 }
 
 // Create schema for bronze datalake layer in dev env.
@@ -299,10 +210,10 @@ resource "databricks_grants" "silver" {
     principal  = "data_engineer"
     privileges = ["USE_SCHEMA", "CREATE_FUNCTION", "CREATE_TABLE", "EXECUTE", "MODIFY", "SELECT"]
   }
-  grant {
-    principal  = "data_scientist"
-    privileges = ["USE_SCHEMA", "SELECT"]
-  }
+  # grant {
+  #   principal  = "data_scientist"
+  #   privileges = ["USE_SCHEMA", "SELECT"]
+  # }
 }
 
 // Create schema for gold datalake layer in dev env.
@@ -320,12 +231,13 @@ resource "databricks_grants" "gold" {
     principal  = "data_engineer"
     privileges = ["USE_SCHEMA", "CREATE_FUNCTION", "CREATE_TABLE", "EXECUTE", "MODIFY", "SELECT"]
   }
-  grant {
-    principal  = "data_scientist"
-    privileges = ["USE_SCHEMA", "SELECT"]
-  }
-  grant {
-    principal  = "data_analyst"
-    privileges = ["USE_SCHEMA", "SELECT"]
-  }
+  # grant {
+  #   principal  = "data_scientist"
+  #   privileges = ["USE_SCHEMA", "SELECT"]
+  # }
+  # grant {
+  #   principal  = "data_analyst"
+  #   privileges = ["USE_SCHEMA", "SELECT"]
+  # }
 }
+

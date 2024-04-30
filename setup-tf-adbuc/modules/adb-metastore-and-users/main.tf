@@ -8,7 +8,6 @@ terraform {
     }
   }
 }
-
 provider "azurerm" {
   subscription_id = var.subscription_id
   features {}
@@ -34,6 +33,15 @@ provider "databricks" {
   host = local.databricks_workspace_host
 }
 
+// Initialize provider at Azure account-level
+provider "databricks" {
+  alias      = "azure_account"
+  host       = "https://accounts.azuredatabricks.net"
+  account_id = "4378610f-3ea4-4abf-b47a-c939bd1723a2"
+  auth_type  = "azure-cli"
+}
+
+
 // Create azure managed identity to be used by unity catalog metastore
 resource "azurerm_databricks_access_connector" "unity" {
   name                = "adb${local.prefix}-mi"
@@ -43,10 +51,9 @@ resource "azurerm_databricks_access_connector" "unity" {
     type = "SystemAssigned"
   }
 }
-
 // Create a storage account to be used by unity catalog metastore as root storage
 resource "azurerm_storage_account" "unity_catalog" {
-  name                     = "sta${local.prefix}ucmtt"
+  name                     = "sta${local.prefix}uc"
   resource_group_name      = data.azurerm_resource_group.this.name
   location                 = data.azurerm_resource_group.this.location
   tags                     = data.azurerm_resource_group.this.tags
@@ -97,13 +104,6 @@ resource "databricks_metastore_assignment" "this" {
 }
 
 
-// Initialize provider at Azure account-level
-provider "databricks" {
-  alias      = "azure_account"
-  host       = "https://accounts.azuredatabricks.net"
-  account_id = var.account_id
-  auth_type  = "azure-cli"
-}
 
 locals {
   aad_groups = toset(var.aad_groups)
@@ -183,6 +183,7 @@ resource "databricks_service_principal" "sp" {
 locals {
   account_admin_members = toset(flatten([for group in values(data.azuread_group.this) : [group.display_name == "account_unity_admin" ? group.members : []]]))
 }
+
 # Extract information about real account admins users
 data "azuread_users" "account_admin_users" {
   ignore_missing = true
