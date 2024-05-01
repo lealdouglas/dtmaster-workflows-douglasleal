@@ -2,12 +2,15 @@ terraform {
   required_providers {
     azurerm = {
       source = "hashicorp/azurerm"
+      # version = "=21.90.0"
     }
     databricks = {
-      source = "databricks/databricks"
+      source  = "databricks/databricks"
+      version = "=1.15.0"
     }
   }
 }
+
 provider "azurerm" {
   subscription_id = var.subscription_id
   features {}
@@ -33,13 +36,6 @@ provider "databricks" {
   host = local.databricks_workspace_host
 }
 
-// Initialize provider at Azure account-level
-provider "databricks" {
-  alias      = "azure_account"
-  host       = "https://accounts.azuredatabricks.net"
-  account_id = "4378610f-3ea4-4abf-b47a-c939bd1723a2"
-  auth_type  = "azure-cli"
-}
 
 
 // Create azure managed identity to be used by unity catalog metastore
@@ -51,6 +47,7 @@ resource "azurerm_databricks_access_connector" "unity" {
     type = "SystemAssigned"
   }
 }
+
 // Create a storage account to be used by unity catalog metastore as root storage
 resource "azurerm_storage_account" "unity_catalog" {
   name                     = "sta${local.prefix}uc"
@@ -83,18 +80,21 @@ resource "databricks_metastore" "this" {
     azurerm_storage_container.unity_catalog.name,
   azurerm_storage_account.unity_catalog.name)
   force_destroy = true
-  owner         = "account_unity_admin"
+  # owner         = "account_unity_admin"
 }
 
-// Assign managed identity to metastore
-resource "databricks_metastore_data_access" "first" {
-  metastore_id = databricks_metastore.this.id
-  name         = "the-metastore-key"
-  azure_managed_identity {
-    access_connector_id = azurerm_databricks_access_connector.unity.id
-  }
-  is_default = true
-}
+
+# // Assign managed identity to metastore
+# // AVALIAR COLOCAR ESSE CARA NA PARTE DE FORA
+# resource "databricks_metastore_data_access" "first" {
+#   metastore_id = databricks_metastore.this.id
+#   name         = "the-metastore-key"
+#   azure_managed_identity {
+#     access_connector_id = azurerm_databricks_access_connector.unity.id
+#   }
+#   is_default = true
+#   depends_on = [databricks_grants.this]
+# }
 
 // Attach the databricks workspace to the metastore
 resource "databricks_metastore_assignment" "this" {
@@ -103,6 +103,13 @@ resource "databricks_metastore_assignment" "this" {
   default_catalog_name = "hive_metastore"
 }
 
+// Initialize provider at Azure account-level
+provider "databricks" {
+  alias      = "azure_account"
+  host       = "https://accounts.azuredatabricks.net"
+  account_id = var.account_id
+  auth_type  = "azure-cli"
+}
 
 
 locals {
@@ -204,3 +211,14 @@ resource "databricks_user_role" "account_admin" {
   role       = "account_admin"
   depends_on = [databricks_group.this, databricks_user.this, databricks_service_principal.sp]
 }
+
+# resource "databricks_group" "this" {
+#   provider     = databricks.azure_account
+#   display_name = "account_unity_admin"
+# }
+
+# resource "databricks_group_member" "vip_member" {
+#   provider  = databricks.azure_account
+#   group_id  = databricks_group.this.id
+#   member_id = data.databricks_user.this.id
+# }

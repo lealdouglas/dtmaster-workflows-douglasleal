@@ -1,3 +1,7 @@
+variable "subscription_id" {
+  description = "Azure subscription id"
+}
+
 variable "project_code" {
   type    = string
   default = "dtmstrdougsll"
@@ -30,5 +34,5 @@ variable "tags" {
 variable "aad_groups" {
   description = "List of AAD groups that you want to add to Databricks account"
   type        = list(string)
-  default     = ["account_unity_admin", "Data Engineers"]
+  default     = ["data_engineer"]
 }

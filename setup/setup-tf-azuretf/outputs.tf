@@ -12,3 +12,6 @@ output "databricks_host" {
   value = "[tf-dtmaster-dougsll] Databricks endpoint criado com sucesso: https://${azurerm_databricks_workspace.this.workspace_url}/"
 }
 
+output "databricks_id" {
+  value = "[tf-dtmaster-dougsll] Databricks endpoint criado com sucesso: https://${azurerm_databricks_workspace.this.workspace_id}/"
+}
