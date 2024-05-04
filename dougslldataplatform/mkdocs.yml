@@ -1,0 +1,21 @@
+site_name: DTMASTER-INGEST-DOUGLASLEAL
+repo_url: https://github.com/lealdouglas/dtmaster-ingest-douglasleal
+repo_name: lealdouglas/dtmaster-ingest-douglasleal
+edit_uri: tree/main/docs
+
+theme:
+  name: readthedocs
+  logo: assets/sabre.png
+  favicon: assets/sabre.png
+
+markdown_extensions:
+  - attr_list
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [dougslldataplatform]
