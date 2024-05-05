@@ -1,0 +1,18 @@
+resources:
+  metadata:
+    project: ''
+    domain: ''
+  job_ingest:
+    # job name
+    name: account_job
+
+    # Batch or Stream
+    type: batch
+
+    # Run every day at 8:37 AM
+    schedule: '44 37 8 * * ?'
+
+    # PP P M G GG
+    job_cluster_size: PP
+  table_metadata:
+    name: account
